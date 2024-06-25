@@ -20,11 +20,61 @@
 namespace sylar {
 
     /**
+ * @brief 局部锁的模板实现
+ */
+    template<class T>
+    struct ScopedLockImpl {
+    public:
+        /**
+         * @brief 构造函数
+         * @param[in] mutex Mutex
+         */
+        ScopedLockImpl(T& mutex)
+                :m_mutex(mutex) {
+            m_mutex.lock();
+            m_locked = true;
+        }
+
+        /**
+         * @brief 析构函数,自动释放锁
+         */
+        ~ScopedLockImpl() {
+            unlock();
+        }
+
+        /**
+         * @brief 加锁
+         */
+        void lock() {
+            if(!m_locked) {
+                m_mutex.lock();
+                m_locked = true;
+            }
+        }
+
+        /**
+         * @brief 解锁
+         */
+        void unlock() {
+            if(m_locked) {
+                m_mutex.unlock();
+                m_locked = false;
+            }
+        }
+    private:
+        /// mutex
+        T& m_mutex;
+        /// 是否已上锁
+        bool m_locked;
+    };
+
+    /**
      * @brief 互斥量
      */
     class Mutex : Noncopyable {
-
     public:
+        /// 局部锁
+        typedef ScopedLockImpl<Mutex> Lock;
         /**
          * @brief 构造函数
          */

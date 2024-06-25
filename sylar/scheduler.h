@@ -68,9 +68,11 @@ namespace sylar {
         template<class FiberOrCb>
         void schedule(FiberOrCb fc, int thread = -1) {
             bool need_tickle = false;
-            m_mutex.lock();
-            need_tickle = scheduleNOLock(fc, thread);
-            m_mutex.unlock();
+            {
+                // 范围锁对象，出范围自动解锁
+                MutexType::Lock lock(m_mutex);
+                need_tickle = scheduleNOLock(fc, thread);
+            }
             if (need_tickle) {
                 tickle(); // 唤醒idle协程
             }
