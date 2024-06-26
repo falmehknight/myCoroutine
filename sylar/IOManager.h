@@ -7,12 +7,13 @@
 
 
 #include "scheduler.h"
+#include "timer.h"
 
 namespace sylar {
 
     static sylar::Logger::ptr g_logger = SYLAR_LOG_NAME("system");
 
-    class IOManager : public Scheduler {
+    class IOManager : public Scheduler, public TimerManager {
     public :
         typedef std::shared_ptr<IOManager> ptr;
         typedef RWMutex RWMutexType;
@@ -167,10 +168,10 @@ namespace sylar {
          */
         bool stopping(uint64_t& timeout);
 
-//        /**
-//         * @brief 当有定时器插入到头部时，要重新更新epoll_wait的超时时间，这里是唤醒idle协程以便于使用新的超时时间
-//         */
-//        void onTimerInsertedAtFront() override;
+        /**
+         * @brief 当有定时器插入到头部时，要重新更新epoll_wait的超时时间，这里是唤醒idle协程以便于使用新的超时时间
+         */
+        void onTimerInsertedAtFront() override;
 
         /**
          * @brief 重置socket句柄上下文的容器大小

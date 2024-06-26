@@ -74,21 +74,39 @@ namespace sylar {
         });
 
         while(true) {
-            // 判断idle协程是否可以停止
-            if (stopping()) {
+            // 获取下一个定时器的超时时间，顺便判断调度器是否停止
+            uint64_t next_timeout = 0;
+            if (SYLAR_UNLIKELY(stopping(next_timeout))) {
                 SYLAR_LOG_DEBUG(g_logger) << "name=" << getName() << "idle stopping exit";
                 break;
             }
-            // 2. 阻塞在epoll_wait上，等待事件发生
-            static const int MAX_TIMEOUT = 5000;
-            int rt = epoll_wait(m_epfd, events, MAX_EVENTS, MAX_TIMEOUT);
-            if (rt < 0) {
-                // 系统调用被中断了，应该继续去检查去
-                if (errno == EINTR) {
-                    continue;
+            // 2. 阻塞在epoll_wait上，等待事件发生或者定时器超时
+            int rt = 0;
+            do {
+                // 默认超时时间为5s，如果下一个定时器的超时时间大于5s，仍以5s来计算超时，避免超时时间太大时，epoll_wait一直阻塞
+                static const int MAX_TIMEOUT = 5000;
+                if (next_timeout != ~0ull) {
+                    next_timeout = std::min((int)next_timeout, MAX_TIMEOUT);
+                } else {
+                    next_timeout = MAX_TIMEOUT;
                 }
-                SYLAR_LOG_ERROR(g_logger) << "epoll_wait" << m_epfd << ") ( rt = " << rt << ") ( errno=" << errno ;
-                break;
+                rt = epoll_wait(m_epfd, events, MAX_EVENTS, (int)next_timeout);
+                if (rt <0 && errno == EINTR) {
+                    // 系统调用被中断了，应该继续去检查去
+                    continue;
+                } else {
+                    break;
+                }
+            } while (true);
+
+            // 收集所有已超时的定时器，执行回调函数
+            std::vector<std::function<void()>> cbs;
+            listExpiredCb(cbs);
+            if (!cbs.empty()) {
+                for (const auto &cb : cbs) {
+                    schedule(cb);
+                }
+                cbs.clear();
             }
 
             // 3. 遍历发生的事件，根据epoll_event的私有指针找到对应的FdContext，进行事件处理
