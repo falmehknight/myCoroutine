@@ -10,6 +10,8 @@
 
 namespace sylar {
 
+    static sylar::Logger::ptr g_logger = SYLAR_LOG_NAME("system");
+
     class IOManager : public Scheduler {
     public :
         typedef std::shared_ptr<IOManager> ptr;
@@ -152,6 +154,9 @@ namespace sylar {
         /**
          * @brief idle协程
          * @details 对于IO协程调度来说，应阻塞在等待IO事件上，idle退出的时机是epoll_wait返回，对应的操作是tickle或注册的IO事件发生
+         * @Attention 调度器无调度任务时会阻塞在idle协程上，对IO调度器而言，idle状态应该关注两件事，一是有没有新的调度任务，
+         * 对应Scheduler::schedule(),如果有新的调度任务，那么应该立即退出idle状态，并执行对应的任务；
+         * 二是关注当前注册的所有IO事件有没有触发，如果有触发，那么应该执行IO事件对应的回调函数
          */
         void idle() override;
 
