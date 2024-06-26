@@ -377,12 +377,23 @@ namespace sylar {
     }
 
     bool IOManager::stopping() {
-        // 对于IOManager⽽⾔，必须等所有待调度的IO事件都执⾏完了才可以退出
-        return m_pendingEventCount == 0 && Scheduler::stopping();
+        uint64_t timeout = 0;
+        return stopping(timeout);
     }
 
     IOManager *IOManager::GetThis() {
         return dynamic_cast<IOManager *>(Scheduler::GetThis());
+    }
+
+    bool IOManager::stopping(uint64_t &timeout) {
+        // 对于IOManager⽽⾔，必须等所有待调度的IO事件都执⾏完了才可以退出
+        // 增加定时器功能后，还应该保证没有剩余的定时器待触发
+        timeout = getNextTimer();
+        return timeout == ~0ull && m_pendingEventCount == 0 && Scheduler::stopping();
+    }
+
+    void IOManager::onTimerInsertedAtFront() {
+        tickle();
     }
 
 
